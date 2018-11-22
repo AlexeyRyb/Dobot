@@ -12,8 +12,17 @@ def create_server(ip_in: str, port_in: int):
     return sock
 
 
-class Dobot:
 
+# class Point:
+#TODO write this class
+# it is Queue
+# clear()
+# add()
+# delete()
+# atributes: x y z r speed ctrltool
+
+
+class Dobot:
     def __init__(self):
         self._curPoX = 0
         self._curPosY = 0
@@ -29,6 +38,7 @@ class Dobot:
         self._ctrlTool = 0
         self._iteration = 0
         self._ctrlMode = 0
+        self._coordSys = 0
         self._numberIteration = 0
         self._toolValue = 0
         self._needX = 0
@@ -41,134 +51,169 @@ class Dobot:
         self._realTime = True
 
     def moveTo(self, x, y, z, r):
-        dType.SetPTPCmd(api, self._ptpMode, x, y, z, r)
+
+        # dType.SetPTPCmd(api, self._ptpMode, x, y, z, r)
 
     def changePos(self):
-        self._curPosX, self._curPosY, self._curPosZ, self._curPosJ1, self._curPosJ2, self._curPosJ2, self._curPosJ3,\
-            self._curPosJ4 = map(dType.GetPose(api))
+        
+        # self._curPosX, self._curPosY, self._curPosZ, self._curPosJ1, self._curPosJ2, self._curPosJ2, self._curPosJ3,\ self._curPosJ4 = map(dType.GetPose(api))
 
     def printPosSocketWorld(self, sock):
+
         strIn = str(self._curPosX) + " " + str(self._curPosY) + " " + str(self._curPosZ) + " " + str(
             self._curPosR) + "\n"
         logging.info("Dobot -> CU :    " + strIn)
         sock.send(strIn.encode())
 
     def printPosSocketJoint(self, sock):
+
         strIn = str(self._curPosJ1) + " " + str(self._curPosJ2) + " " + str(self._curPosJ3) + " " + str(
             self._curPosJ4) + "\n"
         logging.info("Dobot -> CU :    " + strIn)
         sock.send(strIn.encode())
 
-    def robotMoving(self, sock):
-        #TODO find Dobot possibility of moving
+    def robotMoving(self):
 
-    def stopRobot(self, sock):
-        #TODO function of stopping robot
+        eps = 0.2
 
-    def realTimeMode(self, sock):
+        self.changePos()
+        a = [self._curPosJ1, self._curPosJ2, self._curPosJ3, self._curPosJ4]
+        self.changePos()
 
-        self._iteration += 1
-        self._ctrlMode = 0
+        if (abs(self._curPosJ1 - a[0]) < eps) or (abs(self._curPosJ2 - a[1]) < eps) or (abs(self._curPosJ3 - a[2]) < eps) or (abs(self._curPosJ4 - a[3]) < eps):
 
-        if self._numberIteration > 0:
-
-            if (self._iteration % self._numberIteration) == 0:
-
-                self._iteration = 0
-
-                if (self._ctrl == 2) or (self._ctrl == 4):
-                    self.printPosSocketWorld(sock)
-
-                if (self._ctrl == 3) or (self._ctrl == 5):
-                    self.printPosSocketJoint(sock)
-
-        dataStr = sock.recv(128).decode()
-
-        if dataStr:
-
-            logging.info("CU -> Dobot :    " + dataStr)
-            dataList = list(map(int, dataStr.split()))
-            specialValue = dataList[0]
-
-            if (dataList[0] < -1) or (dataList > 3):
-                logging.error("Invalid package number")
-                return
+            logging.debug("Dobot moving")
+            return True
 
         else:
 
-            specialValue = -1
+            logging.debug("Dobot don't moving")
+            return False
 
-        if (specialValue == -1):
+    def stopRobot(self):
 
-            if (not self.robotMoving()) and self._stopNow:
+        logging.debug("Dobot stop")
 
-                self._stopNow = False
+        self.changePos()
+        # dType.SetPTPCmd(api, 2, self._curPosX, self._curPosY, self._curPosZ, self._curPosR)
 
-                if self._whatReturn == 3:
-                    self.printPosSocketWorld(sock)
+    def pointInput(self, listIn):
 
-                if self._whatReturn == 4:
-                    self.printPosSocketJoint(sock)
+        xIn, yIn, zIn, rIn, speedIn, ctrlIn = listIn[1], listIn[2], listIn[3], listIn[4], listIn[5], listIn[6]
 
-                '''
-                    tool action: open, close, relax
-                '''
+        logging.info("CU -> Dobot: ", data)
+        # TODO check position
+        if True and speedIn > 0 and ctrlIn > -1:
 
-            if self._moveNow:
+            logging.debug("Point is correct")
 
-                self._moveNow = False
-                self._stopNow = True
+            self._needX, self._needY, self._needZ, self._needR = xIn, yIn, zIn, rIn
+            self._speed = speedIn
+            self._ctrlTool = ctrlIn
 
-                # CRUTCH
-                self._toolValue = self._ctrlTool
-                # CRUTCH
+            if ctrlIn == 1:
 
-                if self.robotMoving():
+                self._ctrl = 1
 
-                    self.stopRobot()
+        else:
 
-                    if self._whatReturn == 3:
-                        self.printPosSocketWorld(sock)
+            logging.debug("Point is incorrect. It was ignored.")
 
-                    if self._whatReturn == 4:
-                        self.printPosSocketJoint(sock)
+    def setsetting(self, listIn):
 
-                    self.moveTo(self._needX, self._needY, self._needZ.self._needR)
+        ptpModeIn, whatRetIn, epsIn, numIterIn, ctrlIn = listIn[1], listIn[2], listIn[3], listIn[4], listIn[5]
 
-                    #TODO class point and functions for it
+        if (ptpModeIn > -1) and (ptpModeIn < 10):
 
-                else:
+            logging.debug("PtpMode correct")
 
-                    if self._whatReturn == 1:
-                        self.printPosSocketWorld(sock)
+            if (ptpModeIn > 2) and (ptpModeIn < 7):
+                self._coordSys = 0
+            else:
+                self._coordSys = 2
 
-                    if self._whatReturn == 2:
-                        self.printPosSocketJoint(sock)
+            self._ptpMode = ptpModeIn
 
-                    if self._ctrlTool == 2:
+        else:
+            logging.warning("PtpMode incorrect")
 
-                    # CRUTCH tool action
+        if (whatRetIn> -1) and (whatRetIn < 5):
 
-                    #TODO read about tool-functions in DobotAPI
+            logging.debug("WhatReturn correct")
+            self._whatReturn = whatRetIn
 
-                    self.moveTo(self._needX, self._needY, self._needZ.self._needR)
+        else:
+            logging.warning("WhatReturn incorrect")
 
-        if specialValue == 0:
-            self._ctrlMode = 1
+        if epsIn >= 1:
 
-        if specialValue == 1:
-            self.pointInput(dataList)
+            logging.debug("Epsilon correct")
+            self._epsilon = epsIn
 
-        if specialValue == 2:
-            self.setSetting(dataList)
+        else:
+            logging.warning("Epsilon incorrect")
 
-        if specialValue == 3:
-            self.specialPack(dataList[1])
+        if numIterIn > 0:
 
-        if self._ctrlMode == 1:
-            self._realTime = False
+            logging.debug("NumberIteration correct")
+            self._numberIteration = numIterIn
 
-    def noRealTime(self, sock):
+        else:
+            logging.warning("NumberIteration incorrect")
+
+        if ctrlIn > -1:
+
+            logging.debug("Ctrl correct")
+            self._ctrl = ctrlIn
+
+        else:
+            logging.warning("Ctrl incorrect")
+
+
+    def specialPack(self, ctrlIn, sock):
+
+        if ctrlIn == 1:
+
+            self._ctrl = 1
+
+        elif ctrlIn == 2:
+
+            self.printPosSocketWorld(sock)
+
+        elif ctrlIn == 3:
+
+            self.printPosSocketJoint(sock)
+        else:
+            logging.warning("Wrong ctrl param")
+
+
+        #... and other special function robot
+
+    def distanceToPoint(self):
+
+        self.changePos()
+
+        if self._coordSys == 2:
+
+            distance = ((self._needX - self._curPosX)**2 + (self._needY - self._curPosY)**2 + (self._needZ - self._curPosZ)**2)**(1/2)
+
+            logging.debug("Distance to Point = ", distance)
+
+            return  distance
+
+        if self._coordSys == 0:
+
+            distance = ((self._needX - self._curPosJ1)**2 + (self._needY - self._curPosJ2)**2 + (self._needZ - self._curPosJ3)**2)**(1/2)
+
+            logging.debug("Distance to Point", distance)
+
+            return  distance
+
+        logging.error("Wrong system coord")
+
+        return -1
+
+    def TimeMode(self, sock):
 
         self._iteration += 1
         self._ctrlMode = 0
@@ -207,6 +252,8 @@ class Dobot:
 
                 self._stopNow = False
 
+                logging.debug("Dobot stopped at that moment")
+
                 if self._whatReturn == 3:
                     self.printPosSocketWorld(sock)
 
@@ -217,26 +264,48 @@ class Dobot:
                     tool action: open, close, relax
                 '''
 
-            if (self._moveNow) and (self.distanceToPoint() < self._epsilon):
+            if (self._moveNow and self._realTime) or (self._moveNow and not self._realTime and self.distanceToPoint() < self._epsilon):
 
                 self._moveNow = False
                 self._stopNow = True
+
+                logging.info("Dobot moving in Point = (", self._needX, " , ", self._needY, ", ",  self._needZ, ", ", self._needR, ")")
 
                 # CRUTCH
                 self._toolValue = self._ctrlTool
                 # CRUTCH
 
-                if self._whatReturn == 1:
-                    self.printPosSocketWorld(sock)
+                if self.robotMoving() and self._realTime:
 
-                if self._whatReturn == 2:
-                    self.printPosSocketJoint(sock)
+                    logging.debug("Dobot stopped at that moment")
 
-                if self._ctrlTool == 2:
+                    self.stopRobot()
+
+                    if self._whatReturn == 3:
+                        self.printPosSocketWorld(sock)
+
+                    if self._whatReturn == 4:
+                        self.printPosSocketJoint(sock)
+
+                    self.moveTo(self._needX, self._needY, self._needZ, self._needR)
+
+                    #TODO class point and functions for it
+
+                else:
+
+                    if self._whatReturn == 1:
+                        self.printPosSocketWorld(sock)
+
+                    if self._whatReturn == 2:
+                        self.printPosSocketJoint(sock)
+
+                    if self._ctrlTool == 2:
 
                     # CRUTCH tool action
 
-                self.moveTo(self._needX, self._needY, self._needZ, self._needR)
+                    #TODO read about tool-functions in DobotAPI
+
+                    self.moveTo(self._needX, self._needY, self._needZ, self._needR)
 
         if specialValue == 0:
             self._ctrlMode = 1
@@ -248,11 +317,22 @@ class Dobot:
             self.setSetting(dataList)
 
         if specialValue == 3:
-            self.specialPack(dataList[1])
+            self.specialPack(dataList[1], sock)
 
-        if self._ctrlMode == 1:
+        if self._ctrlMode == 1 and self._realTime:
+            logging.info("Swap Mode RealTime to NoRealTime")
             self._realTime = False
 
+        if self._ctrlMode == 1 and not self._realTime:
+            logging.info("Swap Mode NoRealTime to RealTime")
+            self._realTime = True
+
+    def okay(self):
+
+        if self._ctrl == 1:
+            return False
+        else:
+            return True
 
 ########################################################################################################################
 
@@ -271,29 +351,28 @@ while True:
 
     try:
 
+        '''
+        dobotMagic.changePos()
+        data = conn.recv(1024).decode()
+
+        if not data:
+            break
+
+        logging.info("CU -> Dobot :    " + str(data))
+
+        x, y, z, r = map(int, data.split())
+
+        dobotMagic.moveTo(x, y, z, r)
+
+        timeBefore = time.time()'''
+
         while True:
 
             dobotMagic.changePos()
-            data = conn.recv(1024).decode()
+            dobotMagic.TimeMode(conn)
 
-            if not data:
+            if dobotMagic.okay():
                 break
-
-            logging.info("CU -> Dobot :    " + str(data))
-
-            x, y, z, r = map(int, data.split())
-
-            dobotMagic.moveTo(x, y, z, r)
-
-            timeBefore = time.time()
-
-            while True:
-
-                dobotMagic.printPosSocketWorld(conn)
-                dobotMagic.printPosSocketJoint(conn)
-                if (time.time() - timeBefore > 5):
-                    break
-
 
     except:
 
